@@ -11,11 +11,13 @@ import java.net.Socket;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import pgu.RequestContext.ContentType;
 import pgu.RequestContext.HttpMethod;
 
 public class PguServer {
 
-    private static final int PORT = 8081;
+    private static final String HEADER_ACCEPT = "Accept:";
+    private static final int    PORT          = 8081;
 
     public static void main(final String[] args) {
         run();
@@ -122,28 +124,65 @@ public class PguServer {
             public void run() {
                 final RequestContext rqContext = readRequest(socket);
 
-                if (rqContext.askForXml) {
+                final String clientIP = socket.getInetAddress().toString();
+                final String clientPort = Integer.toString(socket.getPort());
+                final String threadName = Thread.currentThread().getName();
+                final String threadActives = Integer.toString(Thread.activeCount());
+                final String rqMethod = rqContext.method.toString();
 
+                if (ContentType.ANY == rqContext.contentType) {
+                    rqContext.response = "Hello World!";
+
+                } else if (ContentType.HTML == rqContext.contentType) {
+                    rqContext.response = "" + //
+                            "<html>" + //
+                            "  <head>" + //
+                            "    <title>" + threadName + "</title>" + //
+                            "  </head>" + //
+                            "  <body>" + //
+                            "    <div>Your ip: " + clientIP + "</div>" + //
+                            "    <div>Your port: " + clientPort + "</div>" + //
+                            "    <div>Request method: " + rqMethod + "</div>" + //
+                            "  </body>" + //
+                            "</html>" //
+                    ;
+                } else if (ContentType.JSON == rqContext.contentType) {
+                    rqContext.response = String.format("" + //
+                            "{\"thread\": \"%s\",\n" + //
+                            " \"ip\"    : \"%s\",\n" + //
+                            " \"port\"  : \"%s\",\n" + //
+                            " \"method\": \"%s\"}\n", //
+                            threadName //
+                            , clientIP //
+                            , clientPort //
+                            , rqMethod //
+                            );
+
+                } else if (ContentType.TEXT == rqContext.contentType) {
+                    rqContext.response = String.format( //
+                            "thread: %s\nyour IP: %s\nyour port: %s\nthe request method: %s" //
+                            , threadName //
+                            , clientIP //
+                            , clientPort //
+                            , rqMethod //
+                            );
+
+                } else if (ContentType.XML == rqContext.contentType) {
                     rqContext.response = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" + //
                             "<info>\n" + //
                             "  <thread>\n" + //
-                            "    <name>" + Thread.currentThread().getName() + "</name>\n" + //
-                            "    <actives>" + Thread.activeCount() + "</actives>\n" + //
+                            "    <name>" + threadName + "</name>\n" + //
+                            "    <actives>" + threadActives + "</actives>\n" + //
                             "  </thread>\n" + //
                             "  <request>\n" + //
-                            "    <inet>" + socket.getInetAddress() + "</inet>\n" + //
-                            "    <port>" + socket.getPort() + "</port>\n" + //
-                            "    <method>" + rqContext.method + "</method>\n" + //
+                            "    <inet>" + clientIP + "</inet>\n" + //
+                            "    <port>" + clientPort + "</port>\n" + //
+                            "    <method>" + rqMethod + "</method>\n" + //
                             "  </request>\n" + //
                             "</info>\n" //
-                            // rqContext.response = "" + //
-                            // "<html>" + //
-                            // "  <body>" + //
-                            // "    <div>" + Thread.currentThread().getName() + "</div>" + //
-                            // "  </body>" + //
-                            // "</html>" //
                     ;
-
+                } else {
+                    rqContext.response = "Sorry, I do not deal with this content-type for now..";
                 }
                 socket2response.put(socket, rqContext);
                 threadForResponses.run();
@@ -155,27 +194,15 @@ public class PguServer {
                     String line = br.readLine();
 
                     final RequestContext rqContext = new RequestContext();
-                    if (line.startsWith("GET")) {
-                        rqContext.method = HttpMethod.GET;
-
-                    } else if (line.startsWith("POST")) {
-                        rqContext.method = HttpMethod.POST;
-
-                    } else if (line.startsWith("PUT")) {
-                        rqContext.method = HttpMethod.PUT;
-                    }
+                    rqContext.method = extractHttpMethod(line);
 
                     while (line != null) {
-                        if ("".equals(line)) {
-                            break;
-                        } else {
-                            System.out.println(line);
-                            if (line.startsWith("Accept:")) {
-                                if (line.contains("application/xml")) {
-                                    rqContext.askForXml = true;
-                                }
-                            }
+
+                        if (line.startsWith(HEADER_ACCEPT)) {
+                            rqContext.contentType = ContentType.extractContentTypeFromHeader(line);
                         }
+
+                        System.out.println(line);
                         line = br.readLine();
                     }
                     return rqContext;
@@ -184,6 +211,23 @@ public class PguServer {
                     throw new RuntimeException();
                 }
             }
+
         }).start();
+    }
+
+    private static HttpMethod extractHttpMethod(final String line) {
+
+        if (line.startsWith(HttpMethod.GET.toString())) {
+            return HttpMethod.GET;
+
+        } else if (line.startsWith(HttpMethod.POST.toString())) {
+            return HttpMethod.POST;
+
+        } else if (line.startsWith(HttpMethod.PUT.toString())) {
+            return HttpMethod.PUT;
+
+        } else {
+            return null;
+        }
     }
 }
