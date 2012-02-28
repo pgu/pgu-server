@@ -10,14 +10,18 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import pgu.RequestContext.ContentType;
 import pgu.RequestContext.HttpMethod;
 
 public class PguServer {
 
-    private static final String HEADER_ACCEPT = "Accept:";
-    private static final int    PORT          = 8081;
+    private static final String                              HEADER_ACCEPT      = "Accept:";
+    private static final int                                 PORT               = 8081;
+    private static Thread                                    threadForResponses = null;
+    private static ConcurrentHashMap<Socket, RequestContext> socket2response    = new ConcurrentHashMap<Socket, RequestContext>();
+    private static CopyOnWriteArrayList<String>              bodies             = new CopyOnWriteArrayList<String>();
 
     public static void main(final String[] args) {
         run();
@@ -48,8 +52,6 @@ public class PguServer {
             }
         }
     }
-
-    private static Thread threadForResponses = null;
 
     private static void initThreadForResponses() {
         threadForResponses = new Thread(new Runnable() {
@@ -120,8 +122,6 @@ public class PguServer {
         }
     }
 
-    private static ConcurrentHashMap<Socket, RequestContext> socket2response = new ConcurrentHashMap<Socket, RequestContext>();
-
     private static void processClientRequest(final Socket socket) {
         new Thread(new Runnable() {
 
@@ -129,6 +129,22 @@ public class PguServer {
             public void run() {
                 final RequestContext rqContext = readRequest(socket);
 
+                if (rqContext.askForBodies) {
+                    final StringBuilder sb = new StringBuilder();
+                    for (final String msg : bodies) {
+                        sb.append(msg);
+                        sb.append("\n\n");
+                    }
+                    rqContext.response = sb.toString();
+                } else {
+                    giveResponseForContentType(socket, rqContext);
+                }
+
+                socket2response.put(socket, rqContext);
+                threadForResponses.run();
+            }
+
+            private void giveResponseForContentType(final Socket socket, final RequestContext rqContext) {
                 final String clientIP = socket.getInetAddress().toString();
                 final String clientPort = Integer.toString(socket.getPort());
                 final String threadName = Thread.currentThread().getName();
@@ -189,8 +205,6 @@ public class PguServer {
                 } else {
                     rqContext.response = "Sorry, I do not deal with this content-type for now..";
                 }
-                socket2response.put(socket, rqContext);
-                threadForResponses.run();
             }
 
             private RequestContext readRequest(final Socket socket) {
@@ -200,17 +214,37 @@ public class PguServer {
 
                     final RequestContext rqContext = new RequestContext();
                     rqContext.method = extractHttpMethod(line);
+                    rqContext.askForBodies = askForBodies(line);
+
+                    final StringBuilder sbForBody = new StringBuilder();
+                    boolean isBody = false;
 
                     while (line != null) {
+                        System.out.println(line);
 
                         if (line.startsWith(HEADER_ACCEPT)) {
                             ContentType.setContentTypeFromHeader(line, rqContext);
                         }
 
-                        System.out.println(line);
+                        if (isBody) {
+                            sbForBody.append(line);
+                            sbForBody.append("\n");
+                        }
+
+                        isBody = "".equals(line);
                         line = br.readLine();
                     }
+
+                    if (HttpMethod.POST == rqContext.method //
+                            || HttpMethod.PUT == rqContext.method) {
+
+                        if (sbForBody.length() != 0) {
+                            bodies.add(sbForBody.toString());
+                        }
+                    }
+
                     return rqContext;
+
                 } catch (final IOException e) {
                     e.printStackTrace();
                     throw new RuntimeException();
@@ -218,6 +252,10 @@ public class PguServer {
             }
 
         }).start();
+    }
+
+    private static boolean askForBodies(final String line) {
+        return line.contains("/list");
     }
 
     private static HttpMethod extractHttpMethod(final String line) {
