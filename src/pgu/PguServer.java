@@ -88,8 +88,9 @@ public class PguServer {
                 } else if (rqContext.method == HttpMethod.PUT) {
                     return HttpURLConnection.HTTP_NO_CONTENT + " NO CONTENT";
 
+                } else {
+                    return HttpURLConnection.HTTP_NOT_FOUND + " NOT FOUND";
                 }
-                return HttpURLConnection.HTTP_NOT_FOUND + " NOT FOUND";
             }
         });
     }
