@@ -63,11 +63,16 @@ public class PguServer {
 
                     try {
                         final BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                        bw.write("HTTP/1.0 " + getResponseCode(rqContext) + "\n");
-                        bw.write("Server: pguServer/1.0\n");
-                        bw.write("Content-Type: application/xml\n");
-                        bw.write("Content-Length: " + rqContext.response.getBytes().length + "\n\n");
-                        bw.write(rqContext.response);
+                        final String codeAndMessage = getResponseCodeAndMessage(rqContext);
+                        bw.write("HTTP/1.0 " + codeAndMessage + "\n");
+                        bw.write("Server: PguServer/1.0\n");
+                        bw.write("Content-Type: " + rqContext.contentTypeValue + "\n");
+                        bw.write("Content-Length: " + rqContext.response.getBytes().length + "\n");
+                        bw.write("\n");
+                        if (!codeAndMessage.contains(Integer.toString(HttpURLConnection.HTTP_NO_CONTENT))) {
+                            bw.write(rqContext.response);
+                        }
+
                         bw.flush();
 
                         socket.close();
@@ -80,7 +85,7 @@ public class PguServer {
                 }
             }
 
-            private String getResponseCode(final RequestContext rqContext) {
+            private String getResponseCodeAndMessage(final RequestContext rqContext) {
                 if (rqContext.method == HttpMethod.GET) {
                     return HttpURLConnection.HTTP_OK + " OK";
 
@@ -148,10 +153,10 @@ public class PguServer {
                     ;
                 } else if (ContentType.JSON == rqContext.contentType) {
                     rqContext.response = String.format("" + //
-                            "{\"thread\": \"%s\",\n" + //
-                            " \"ip\"    : \"%s\",\n" + //
-                            " \"port\"  : \"%s\",\n" + //
-                            " \"method\": \"%s\"}\n", //
+                            "{\"thread\": \"%s\"," + //
+                            " \"ip\"    : \"%s\"," + //
+                            " \"port\"  : \"%s\"," + //
+                            " \"method\": \"%s\"}", //
                             threadName //
                             , clientIP //
                             , clientPort //
@@ -199,7 +204,7 @@ public class PguServer {
                     while (line != null) {
 
                         if (line.startsWith(HEADER_ACCEPT)) {
-                            rqContext.contentType = ContentType.extractContentTypeFromHeader(line);
+                            ContentType.setContentTypeFromHeader(line, rqContext);
                         }
 
                         System.out.println(line);
@@ -227,7 +232,7 @@ public class PguServer {
             return HttpMethod.PUT;
 
         } else {
-            return null;
+            return HttpMethod.GET; // do not deal with other methods for now
         }
     }
 }

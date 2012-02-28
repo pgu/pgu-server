@@ -29,13 +29,22 @@ public class RequestContext {
             }
         }
 
-        public static ContentType extractContentTypeFromHeader(final String line) {
-            return null;
+        public static void setContentTypeFromHeader(final String line, final RequestContext rqContext) {
+            for (final ContentType contentType : ContentType.values()) {
+                for (final String v : contentType.values) {
+                    if (line.contains(v)) {
+                        rqContext.contentType = contentType;
+                        rqContext.contentTypeValue = v;
+                        break;
+                    }
+                }
+            }
         }
     }
 
     public HttpMethod  method;
-    public ContentType contentType = ContentType.ANY;
-    public String      response    = "";
+    public ContentType contentType      = ContentType.ANY;
+    public String      contentTypeValue = "";
+    public String      response         = "";
 
 }
