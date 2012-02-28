@@ -47,5 +47,5 @@ public class RequestContext {
     public String      contentTypeValue = "";
     public String      response         = "";
     public boolean     askForBodies     = false;
-
+    public int         contentLength    = 0;
 }

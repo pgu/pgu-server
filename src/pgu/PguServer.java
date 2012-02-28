@@ -2,8 +2,12 @@ package pgu;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.ServerSocket;
@@ -17,11 +21,12 @@ import pgu.RequestContext.HttpMethod;
 
 public class PguServer {
 
-    private static final String                              HEADER_ACCEPT      = "Accept:";
-    private static final int                                 PORT               = 8081;
-    private static Thread                                    threadForResponses = null;
-    private static ConcurrentHashMap<Socket, RequestContext> socket2response    = new ConcurrentHashMap<Socket, RequestContext>();
-    private static CopyOnWriteArrayList<String>              bodies             = new CopyOnWriteArrayList<String>();
+    private static final String                              HEADER_ACCEPT         = "Accept:";
+    private static final String                              HEADER_CONTENT_LENGTH = "Content-Length:";
+    private static final int                                 PORT                  = 8081;
+    private static Thread                                    threadForResponses    = null;
+    private static ConcurrentHashMap<Socket, RequestContext> socket2response       = new ConcurrentHashMap<Socket, RequestContext>();
+    private static CopyOnWriteArrayList<String>              bodies                = new CopyOnWriteArrayList<String>();
 
     public static void main(final String[] args) {
         run();
@@ -207,9 +212,26 @@ public class PguServer {
                 }
             }
 
+            public long copyLarge(final InputStream input, final OutputStream output) throws IOException {
+                final byte[] buffer = new byte[1024 * 4];
+                long count = 0;
+                int n = 0;
+                while (-1 != (n = input.read(buffer))) {
+                    output.write(buffer, 0, n);
+                    count += n;
+                }
+                return count;
+            }
+
             private RequestContext readRequest(final Socket socket) {
                 try {
-                    final BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+                    final ByteArrayOutputStream output = new ByteArrayOutputStream();
+                    copyLarge(socket.getInputStream(), output);
+                    final byte[] in = output.toByteArray();
+                    final InputStream is = new ByteArrayInputStream(in);
+
+                    final BufferedReader br = new BufferedReader(new InputStreamReader(is));
                     String line = br.readLine();
 
                     final RequestContext rqContext = new RequestContext();
@@ -224,11 +246,13 @@ public class PguServer {
 
                         if (line.startsWith(HEADER_ACCEPT)) {
                             ContentType.setContentTypeFromHeader(line, rqContext);
+                        } else if (line.startsWith(HEADER_CONTENT_LENGTH)) {
+                            rqContext.contentLength = extractContentLength(line);
                         }
 
                         if (isBody) {
                             sbForBody.append(line);
-                            sbForBody.append("\n");
+                            //                            line = null;
                         }
 
                         isBody = "".equals(line);
@@ -252,6 +276,10 @@ public class PguServer {
             }
 
         }).start();
+    }
+
+    private static int extractContentLength(final String line) {
+        return Integer.parseInt(line.split(HEADER_CONTENT_LENGTH)[1].trim());
     }
 
     private static boolean askForBodies(final String line) {
