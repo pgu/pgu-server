@@ -81,13 +81,13 @@ public class PguServer {
                     return HttpURLConnection.HTTP_OK + " OK";
 
                 } else if (rqContext.method == HttpMethod.POST) {
-                    return HttpURLConnection.HTTP_CREATED + " Created";
+                    return HttpURLConnection.HTTP_CREATED + " CREATED";
 
                 } else if (rqContext.method == HttpMethod.PUT) {
-                    return HttpURLConnection.HTTP_NO_CONTENT + " No Content";
+                    return HttpURLConnection.HTTP_NO_CONTENT + " NO CONTENT";
 
                 }
-                return HttpURLConnection.HTTP_NOT_FOUND + "Not Found";
+                return HttpURLConnection.HTTP_NOT_FOUND + " NOT FOUND";
             }
         });
     }
