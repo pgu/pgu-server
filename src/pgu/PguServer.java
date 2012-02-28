@@ -15,6 +15,8 @@ import pgu.RequestContext.HttpMethod;
 
 public class PguServer {
 
+    private static final int PORT = 8081;
+
     public static void main(final String[] args) {
         run();
     }
@@ -94,7 +96,7 @@ public class PguServer {
 
     private static ServerSocket getServerSocket() {
         try {
-            return new ServerSocket(8081);
+            return new ServerSocket(PORT);
         } catch (final IOException e) {
             e.printStackTrace();
             throw new RuntimeException();
