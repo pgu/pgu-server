@@ -245,6 +245,7 @@ public class PguServer {
 
                         if (line.startsWith(HEADER_ACCEPT)) {
                             ContentType.setContentTypeFromHeader(line, rqContext);
+
                         } else if (line.startsWith(HEADER_CONTENT_LENGTH)) {
                             rqContext.contentLength = extractContentLength(line);
                         }
@@ -261,7 +262,7 @@ public class PguServer {
 
                     if (HttpMethod.POST == rqContext.method //
                             || HttpMethod.PUT == rqContext.method) {
-
+                        // TODO PGU get the body
                         //                        if (sbForBody.length() != 0) {
                         //                            bodies.add(sbForBody.toString());
                         //                        }
