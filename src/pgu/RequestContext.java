@@ -46,6 +46,6 @@ public class RequestContext {
     public ContentType contentType      = ContentType.ANY;
     public String      contentTypeValue = "";
     public String      response         = "";
-    public boolean     askForBodies     = false;
+    public boolean     isRequestForListingBodies     = false;
     public int         contentLength    = 0;
 }

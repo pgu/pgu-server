@@ -2,12 +2,8 @@ package pgu;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.ServerSocket;
@@ -134,7 +130,7 @@ public class PguServer {
             public void run() {
                 final RequestContext rqContext = readRequest(socket);
 
-                if (rqContext.askForBodies) {
+                if (rqContext.isRequestForListingBodies) {
                     final StringBuilder sb = new StringBuilder();
                     for (final String msg : bodies) {
                         sb.append(msg);
@@ -212,37 +208,40 @@ public class PguServer {
                 }
             }
 
-            public long copyLarge(final InputStream input, final OutputStream output) throws IOException {
-                final byte[] buffer = new byte[1024 * 4];
-                long count = 0;
-                int n = 0;
-                while (-1 != (n = input.read(buffer))) {
-                    output.write(buffer, 0, n);
-                    count += n;
-                }
-                return count;
-            }
+            //            public long copyLarge(final InputStream input, final OutputStream output) throws IOException {
+            //                final byte[] buffer = new byte[1024 * 4];
+            //                long count = 0;
+            //                int n = 0;
+            //                while (-1 != (n = input.read(buffer))) {
+            //                    output.write(buffer, 0, n);
+            //                    count += n;
+            //                }
+            //                return count;
+            //            }
 
             private RequestContext readRequest(final Socket socket) {
                 try {
 
-                    final ByteArrayOutputStream output = new ByteArrayOutputStream();
-                    copyLarge(socket.getInputStream(), output);
-                    final byte[] in = output.toByteArray();
-                    final InputStream is = new ByteArrayInputStream(in);
+                    //                    final ByteArrayOutputStream output = new ByteArrayOutputStream();
+                    //                    copyLarge(socket.getInputStream(), output);
+                    //                    final byte[] in = output.toByteArray();
+                    //                    final InputStream is = new ByteArrayInputStream(in);
 
-                    final BufferedReader br = new BufferedReader(new InputStreamReader(is));
+                    final BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                     String line = br.readLine();
 
                     final RequestContext rqContext = new RequestContext();
                     rqContext.method = extractHttpMethod(line);
-                    rqContext.askForBodies = askForBodies(line);
+                    rqContext.isRequestForListingBodies = isRequestForListingBodies(line);
 
-                    final StringBuilder sbForBody = new StringBuilder();
-                    boolean isBody = false;
+                    //                    final StringBuilder sbForBody = new StringBuilder();
+                    //                    boolean isBody = false;
 
                     while (line != null) {
                         System.out.println(line);
+                        if ("".equals(line)) {
+                            break;
+                        }
 
                         if (line.startsWith(HEADER_ACCEPT)) {
                             ContentType.setContentTypeFromHeader(line, rqContext);
@@ -250,21 +249,22 @@ public class PguServer {
                             rqContext.contentLength = extractContentLength(line);
                         }
 
-                        if (isBody) {
-                            sbForBody.append(line);
-                            //                            line = null;
-                        }
+                        //                        if (isBody) {
+                        //                            sbForBody.append(line);
+                        //                            //                            line = null;
+                        //                        }
+                        //
+                        //                        isBody = "".equals(line);
 
-                        isBody = "".equals(line);
                         line = br.readLine();
                     }
 
                     if (HttpMethod.POST == rqContext.method //
                             || HttpMethod.PUT == rqContext.method) {
 
-                        if (sbForBody.length() != 0) {
-                            bodies.add(sbForBody.toString());
-                        }
+                        //                        if (sbForBody.length() != 0) {
+                        //                            bodies.add(sbForBody.toString());
+                        //                        }
                     }
 
                     return rqContext;
@@ -282,7 +282,7 @@ public class PguServer {
         return Integer.parseInt(line.split(HEADER_CONTENT_LENGTH)[1].trim());
     }
 
-    private static boolean askForBodies(final String line) {
+    private static boolean isRequestForListingBodies(final String line) {
         return line.contains("/list");
     }
 
