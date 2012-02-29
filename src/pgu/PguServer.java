@@ -3,6 +3,7 @@ package pgu;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
@@ -208,37 +209,20 @@ public class PguServer {
                 }
             }
 
-            //            public long copyLarge(final InputStream input, final OutputStream output) throws IOException {
-            //                final byte[] buffer = new byte[1024 * 4];
-            //                long count = 0;
-            //                int n = 0;
-            //                while (-1 != (n = input.read(buffer))) {
-            //                    output.write(buffer, 0, n);
-            //                    count += n;
-            //                }
-            //                return count;
-            //            }
-
             private RequestContext readRequest(final Socket socket) {
                 try {
-
-                    //                    final ByteArrayOutputStream output = new ByteArrayOutputStream();
-                    //                    copyLarge(socket.getInputStream(), output);
-                    //                    final byte[] in = output.toByteArray();
-                    //                    final InputStream is = new ByteArrayInputStream(in);
-
-                    final BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    final InputStream inputStream = socket.getInputStream();
+                    System.out.println(inputStream.available());
+                    final BufferedReader br = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
                     String line = br.readLine();
 
                     final RequestContext rqContext = new RequestContext();
                     rqContext.method = extractHttpMethod(line);
                     rqContext.isRequestForListingBodies = isRequestForListingBodies(line);
 
-                    //                    final StringBuilder sbForBody = new StringBuilder();
-                    //                    boolean isBody = false;
-
                     while (line != null) {
                         System.out.println(line);
+
                         if ("".equals(line)) {
                             break;
                         }
@@ -250,22 +234,30 @@ public class PguServer {
                             rqContext.contentLength = extractContentLength(line);
                         }
 
-                        //                        if (isBody) {
-                        //                            sbForBody.append(line);
-                        //                            //                            line = null;
-                        //                        }
-                        //
-                        //                        isBody = "".equals(line);
-
                         line = br.readLine();
                     }
 
-                    if (HttpMethod.POST == rqContext.method //
-                            || HttpMethod.PUT == rqContext.method) {
-                        // TODO PGU get the body
-                        //                        if (sbForBody.length() != 0) {
-                        //                            bodies.add(sbForBody.toString());
-                        //                        }
+                    if ((HttpMethod.POST == rqContext.method //
+                            || HttpMethod.PUT == rqContext.method) //
+                            && rqContext.contentLength > 0 //
+                    ) {
+
+                        int lenTotal = rqContext.contentLength;
+                        int c = br.read();
+                        final StringBuilder body = new StringBuilder();
+                        while (c > -1) {
+
+                            body.append((char) c);
+                            lenTotal -= Character.toString((char) c).getBytes().length;
+
+                            if (lenTotal <= 0) {
+                                break;
+                            }
+                            c = br.read();
+                        }
+
+                        System.out.println(body.toString());
+                        bodies.add(body.toString());
                     }
 
                     return rqContext;
