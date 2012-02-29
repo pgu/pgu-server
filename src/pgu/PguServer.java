@@ -135,7 +135,7 @@ public class PguServer {
                     final StringBuilder sb = new StringBuilder();
                     for (final String msg : bodies) {
                         sb.append(msg);
-                        sb.append("\n\n");
+                        sb.append("\n");
                     }
                     rqContext.response = sb.toString();
                 } else {
